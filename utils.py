@@ -1,7 +1,6 @@
 from models import Node
 
 DEPOT       = None
-
 def parse_input(file_path: str):
     global DEPOT
     nodes = []

@@ -1,9 +1,6 @@
 import math
 
-
-# ---------------------------------------------------------------------------
 # Node
-# ---------------------------------------------------------------------------
 class Node:
     """Đại diện cho một điểm trong bài toán VRPPD.
 
@@ -20,9 +17,6 @@ class Node:
         self.pickup_index   = pickup_index    # ID node pickup tương ứng (0 nếu không có)
         self.delivery_index = delivery_index  # ID node delivery tương ứng (0 nếu không có)
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
     @property
     def is_depot(self) -> bool:
         return self.demand == 0 and self.pickup_index == 0 and self.delivery_index == 0
@@ -43,26 +37,19 @@ class Node:
         kind = "depot" if self.is_depot else ("pickup" if self.is_pickup else "delivery")
         return f"Node({self.id}, {kind}, demand={self.demand})"
 
-
-# ---------------------------------------------------------------------------
 # Route  —  lịch trình của một xe / tài xế
-# ---------------------------------------------------------------------------
 class Route:
     """Lịch trình phục vụ của một xe.
-
     nodes: danh sách Node theo thứ tự thăm (không bao gồm depot).
     depot: node xuất phát / kết thúc.
     capacity: tải trọng tối đa của xe.
     """
-
     def __init__(self, depot: Node, capacity: float):
         self.depot    = depot
         self.capacity = capacity
-        self.nodes: list[Node] = []   # danh sách node theo thứ tự phục vụ
+        self.nodes: list[Node] = []
 
-    # ------------------------------------------------------------------
     # Kiểm tra ràng buộc
-    # ------------------------------------------------------------------
     def is_feasible(self) -> bool:
         """Kiểm tra tất cả ràng buộc: capacity và precedence."""
         return self._check_capacity() and self._check_precedence()
@@ -87,11 +74,8 @@ class Route:
             visited_ids.add(node.id)
         return True
 
-    # ------------------------------------------------------------------
     # Chi phí
-    # ------------------------------------------------------------------
     def total_distance(self) -> float:
-        """Tổng quãng đường: depot → nodes → depot."""
         if not self.nodes:
             return 0.0
         dist = self.depot.distance_to(self.nodes[0])
@@ -100,9 +84,7 @@ class Route:
         dist += self.nodes[-1].distance_to(self.depot)
         return dist
 
-    # ------------------------------------------------------------------
     # Dunder
-    # ------------------------------------------------------------------
     def __len__(self):
         return len(self.nodes)
 
@@ -110,36 +92,21 @@ class Route:
         ids = " → ".join(str(n.id) for n in self.nodes)
         return f"Route(dist={self.total_distance():.2f}, nodes=[{ids}])"
 
-
-# ---------------------------------------------------------------------------
-# Solution  —  tập hợp các Route
-# ---------------------------------------------------------------------------
+# Solution
 class Solution:
-    """Lời giải hoàn chỉnh cho bài toán VRPPD.
-
-    drivers: danh sách các Route (mỗi Route = một xe/tài xế).
-    total_cost: tổng chi phí = tổng quãng đường tất cả xe.
-    """
-
     def __init__(self, drivers: list[Route] | None = None):
         self.drivers: list[Route] = drivers if drivers is not None else []
 
-    # ------------------------------------------------------------------
     # Chi phí
-    # ------------------------------------------------------------------
     @property
     def total_cost(self) -> float:
         return sum(r.total_distance() for r in self.drivers)
 
-    # ------------------------------------------------------------------
     # Kiểm tra
-    # ------------------------------------------------------------------
     def is_feasible(self) -> bool:
         return all(r.is_feasible() for r in self.drivers)
 
-    # ------------------------------------------------------------------
     # Dunder
-    # ------------------------------------------------------------------
     def __str__(self):
         lines = []
         for i, route in enumerate(self.drivers):
