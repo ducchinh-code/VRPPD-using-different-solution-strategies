@@ -1,25 +1,19 @@
 import math
 
-# Node
 class Node:
-    """Đại diện cho một điểm trong bài toán VRPPD.
-
-    Demand dương  → pickup  (lấy hàng)
-    Demand âm     → delivery (giao hàng)
-    Demand = 0    → depot
-    """
-
-    def __init__(self, node_id, x, y, demand, pickup_index, delivery_index):
+    def __init__(self, node_id: int, x: float, y: float,
+                 demand: float,
+                 pickup_index: int, delivery_index: int):
         self.id             = node_id
         self.x              = x
         self.y              = y
-        self.demand         = demand          # >0: pickup | <0: delivery | 0: depot
-        self.pickup_index   = pickup_index    # ID node pickup tương ứng (0 nếu không có)
-        self.delivery_index = delivery_index  # ID node delivery tương ứng (0 nếu không có)
+        self.demand         = demand
+        self.pickup_index   = pickup_index
+        self.delivery_index = delivery_index
 
     @property
     def is_depot(self) -> bool:
-        return self.demand == 0 and self.pickup_index == 0 and self.delivery_index == 0
+        return self.id == 0
 
     @property
     def is_pickup(self) -> bool:
@@ -30,93 +24,137 @@ class Node:
         return self.demand < 0
 
     def distance_to(self, other: "Node") -> float:
-        """Khoảng cách Euclidean đến node khác."""
         return math.hypot(self.x - other.x, self.y - other.y)
 
     def __repr__(self):
         kind = "depot" if self.is_depot else ("pickup" if self.is_pickup else "delivery")
-        return f"Node({self.id}, {kind}, demand={self.demand})"
+        return f"Node(id={self.id}, {kind}, q={self.demand:+g})"
 
-# Route  —  lịch trình của một xe / tài xế
-class Route:
-    """Lịch trình phục vụ của một xe.
-    nodes: danh sách Node theo thứ tự thăm (không bao gồm depot).
-    depot: node xuất phát / kết thúc.
-    capacity: tải trọng tối đa của xe.
-    """
-    def __init__(self, depot: Node, capacity: float):
-        self.depot    = depot
+class Request:
+    def __init__(self, pickup: Node, delivery: Node):
+        self.pickup   = pickup
+        self.delivery = delivery
+
+    def __repr__(self):
+        return (f"Request(p={self.pickup.id} [q={self.pickup.demand:+g}], "
+                f"d={self.delivery.id} [q={self.delivery.demand:+g}])")
+
+class Vehicle:
+    def __init__(self, vehicle_id: int, capacity: float):
+        self.id       = vehicle_id
         self.capacity = capacity
+
+    def __repr__(self):
+        return f"Vehicle(id={self.id}, Q={self.capacity})"
+
+class Route:
+    def __init__(self, vehicle: Vehicle, depot: Node):
+        self.vehicle = vehicle
+        self.depot   = depot
         self.nodes: list[Node] = []
 
-    # Kiểm tra ràng buộc
+    def append(self, node: Node) -> None:
+        self.nodes.append(node)
+
+    def compute_U(self) -> dict[int, int]:
+        U = {self.depot.id: 0}
+        for order, node in enumerate(self.nodes, start=1):
+            U[node.id] = order
+        return U
+
+    def total_cost(self) -> float:
+        if not self.nodes:
+            return 0.0
+        cost = self.depot.distance_to(self.nodes[0])
+        for i in range(len(self.nodes) - 1):
+            cost += self.nodes[i].distance_to(self.nodes[i + 1])
+        cost += self.nodes[-1].distance_to(self.depot)
+        return cost
+
     def is_feasible(self) -> bool:
-        """Kiểm tra tất cả ràng buộc: capacity và precedence."""
-        return self._check_capacity() and self._check_precedence()
+        return self._check_precedence_U() and self._check_capacity()
 
     def _check_capacity(self) -> bool:
-        """Tải trọng xe không được âm hay vượt quá giới hạn tại bất kỳ điểm nào."""
         load = 0.0
         for node in self.nodes:
             load += node.demand
-            if load < 0 or load > self.capacity:
+            if load < 0 or load > self.vehicle.capacity:
                 return False
         return True
 
-    def _check_precedence(self) -> bool:
-        """Mỗi pickup phải được thăm trước delivery tương ứng."""
-        visited_ids = set()
+    def _check_precedence_U(self) -> bool:
+        U = self.compute_U()
         for node in self.nodes:
             if node.is_delivery:
-                # pickup_index trỏ tới ID node pickup tương ứng
-                if node.pickup_index not in visited_ids:
+                p_id = node.pickup_index
+                if p_id not in U:
                     return False
-            visited_ids.add(node.id)
+                if not (U[p_id] < U[node.id]):
+                    return False
         return True
 
-    # Chi phí
-    def total_distance(self) -> float:
-        if not self.nodes:
-            return 0.0
-        dist = self.depot.distance_to(self.nodes[0])
-        for i in range(len(self.nodes) - 1):
-            dist += self.nodes[i].distance_to(self.nodes[i + 1])
-        dist += self.nodes[-1].distance_to(self.depot)
-        return dist
+    def feasibility_report(self) -> dict:
+        U   = self.compute_U()
+        cap_violations  = []
+        prec_violations = []
+        load = 0.0
 
-    # Dunder
+        for node in self.nodes:
+            load += node.demand
+            if load < 0 or load > self.vehicle.capacity:
+                cap_violations.append((node.id, round(load, 4)))
+            if node.is_delivery:
+                p_id = node.pickup_index
+                if p_id not in U or not (U[p_id] < U[node.id]):
+                    prec_violations.append((p_id, node.id))
+
+        return {
+            "feasible"        : not cap_violations and not prec_violations,
+            "cap_violations"  : cap_violations,
+            "prec_violations" : prec_violations,
+            "U"               : U,
+            "total_cost"      : self.total_cost(),
+            "num_nodes"       : len(self.nodes),
+        }
+
     def __len__(self):
         return len(self.nodes)
 
     def __repr__(self):
         ids = " → ".join(str(n.id) for n in self.nodes)
-        return f"Route(dist={self.total_distance():.2f}, nodes=[{ids}])"
+        return (f"Route(vehicle={self.vehicle.id}, "
+                f"cost={self.total_cost():.2f}, "
+                f"nodes=[{ids}])")
 
-# Solution
 class Solution:
-    def __init__(self, drivers: list[Route] | None = None):
-        self.drivers: list[Route] = drivers if drivers is not None else []
+    def __init__(self, routes: list[Route] | None = None):
+        self.routes: list[Route] = routes if routes is not None else []
 
-    # Chi phí
     @property
     def total_cost(self) -> float:
-        return sum(r.total_distance() for r in self.drivers)
+        return sum(r.total_cost() for r in self.routes)
 
-    # Kiểm tra
     def is_feasible(self) -> bool:
-        return all(r.is_feasible() for r in self.drivers)
+        return all(r.is_feasible() for r in self.routes)
 
-    # Dunder
     def __str__(self):
         lines = []
-        for i, route in enumerate(self.drivers):
-            ids = " → ".join(str(n.id) for n in route.nodes)
-            lines.append(
-                f"  Driver {i+1:>2}: depot → {ids} → depot  "
-                f"(dist={route.total_distance():.2f})"
+        for route in self.routes:
+            U   = route.compute_U()
+            ids = " → ".join(
+                f"{n.id}(U={U[n.id]})" for n in route.nodes
             )
-        return "\n".join(lines) if lines else "  (no routes)"
+            tag = "✓" if route.is_feasible() else "✗"
+            lines.append(
+                f"  Xe {route.vehicle.id:>2} [Q={route.vehicle.capacity}]: "
+                f"0(U=0) → {ids} → 0  "
+                f"cost={route.total_cost():.2f}  {tag}"
+            )
+        header = (f"Solution | total_cost={self.total_cost:.2f} | "
+                  f"vehicles={len(self.routes)}")
+        return header + "\n" + ("\n".join(lines) if lines else "  (no routes)")
 
     def __repr__(self):
-        return (f"Solution(drivers={len(self.drivers)}, "
-                f"total_cost={self.total_cost:.2f})")
+        return (f"Solution(vehicles={len(self.routes)}, "
+                f"total_cost={self.total_cost:.2f}, "
+                f"feasible={self.is_feasible()})")
