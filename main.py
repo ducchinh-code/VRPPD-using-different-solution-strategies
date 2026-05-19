@@ -5,7 +5,8 @@ from models import Node, Request, Vehicle, Route, Solution
 
 def run_greedy(nodes, requests, vehicles, capacity) -> Solution:
     # TODO: implement greedy.py
-    return Solution()
+    from greedy import solve_greedy
+    return solve_greedy(nodes, vehicles)
 
 def run_divide_and_conquer(nodes, requests, vehicles, capacity) -> Solution:
     from divide_and_conquer import divide_kmeans, build_routes_greedy, two_opt
