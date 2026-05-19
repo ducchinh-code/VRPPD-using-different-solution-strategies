@@ -31,8 +31,31 @@ def run_divide_and_conquer(nodes, requests, vehicles, capacity) -> Solution:
     return Solution(routes=all_routes)
 
 def run_branch_and_bound(nodes, requests, vehicles, capacity) -> Solution:
-    # TODO: implement branch_and_bound.py
-    return Solution()
+from branch_and_bound import run_branch_and_bound_solver
+    
+    # --- CẤU HÌNH CHIẾN THUẬT CHIA ĐỂ TRỊ ---
+    CHUNK_SIZE = 11           # Số lượng cặp yêu cầu trong một cụm (giữ mức 10-12 để đảm bảo máy chạy nhanh)
+    TIME_LIMIT = 30           # Giới hạn 30 giây cho mỗi cụm
+    all_final_routes = []
+    
+    print(f"  -> Bắt đầu giải {len(requests)} yêu cầu bằng chiến thuật Chia để trị (B&B)...")
+    
+
+    for i in range(0, len(requests), CHUNK_SIZE):
+        chunk_requests = requests[i:i + CHUNK_SIZE]
+        print(f"    -> Đang tối ưu hóa cụm từ {i} đến {min(i + CHUNK_SIZE, len(requests))}...")
+
+        sol = run_branch_and_bound_solver(
+            nodes=nodes, 
+            requests=chunk_requests, 
+            vehicles=vehicles[:8], 
+            capacity=capacity,
+            time_limit_seconds=TIME_LIMIT
+        )
+        # Tổng hợp kết quả
+        if sol and sol.routes:
+            all_final_routes.extend(sol.routes)
+    return Solution(routes=all_final_routes)
 
 def run_genetic_algorithm(nodes, requests, vehicles, capacity) -> Solution:
     # TODO: implement geneticAlgorithm.py
