@@ -1,5 +1,16 @@
 import math
 
+# Shared Euclidean distance cache — avoids redundant math.hypot calls
+_DIST: dict[tuple[int, int], float] = {}
+
+def cdist(a: "Node", b: "Node") -> float:
+    k = (a.id, b.id)
+    d = _DIST.get(k)
+    if d is None:
+        d = math.hypot(a.x - b.x, a.y - b.y)
+        _DIST[k] = d
+    return d
+
 class Node:
     def __init__(self, node_id: int, x: float, y: float,
                  demand: float,
@@ -65,10 +76,10 @@ class Route:
     def total_cost(self) -> float:
         if not self.nodes:
             return 0.0
-        cost = self.depot.distance_to(self.nodes[0])
+        cost = cdist(self.depot, self.nodes[0])
         for i in range(len(self.nodes) - 1):
-            cost += self.nodes[i].distance_to(self.nodes[i + 1])
-        cost += self.nodes[-1].distance_to(self.depot)
+            cost += cdist(self.nodes[i], self.nodes[i + 1])
+        cost += cdist(self.nodes[-1], self.depot)
         return cost
 
     def is_feasible(self) -> bool:

@@ -35,8 +35,8 @@ def run_branch_and_bound(nodes, requests, vehicles, capacity) -> Solution:
     return Solution()
 
 def run_genetic_algorithm(nodes, requests, vehicles, capacity) -> Solution:
-    # TODO: implement geneticAlgorithm.py
-    return Solution()
+    from geneticAlgorithm import genetic_algorithm
+    return genetic_algorithm(nodes, requests, vehicles, capacity)
 
 SEP  = "═" * 70
 SEP2 = "─" * 70
@@ -103,7 +103,6 @@ def print_comparison(results: list[tuple[str, Solution, float]]) -> None:
             n_routes = str(len(sol.routes))
             feasible = "✓" if sol.is_feasible() else "✗"
 
-        # Đánh dấu nghiệm tốt nhất
         marker = " ★" if sol.routes and sol.total_cost == best_cost else "  "
         print(f"  {name:<26} {cost_str:>10} {n_routes:>6} "
               f"{feasible:>8} {elapsed*1000:>7.1f}{marker}")
@@ -122,8 +121,8 @@ STRATEGIES = [
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
-        os.path.join(script_dir, "LC2_4_7.txt"),
-        os.path.join(script_dir, "data", "pdp_400", "LC2_4_7.txt"),
+        os.path.join(script_dir, "lc101.txt"),
+        os.path.join(script_dir, "data", "pdp_100", "lc101.txt"),
     ]
     file_path = next((p for p in candidates if os.path.isfile(p)), None)
     if file_path is None:
