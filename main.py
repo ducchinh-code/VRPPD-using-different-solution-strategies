@@ -33,29 +33,42 @@ def run_divide_and_conquer(nodes, requests, vehicles, capacity) -> Solution:
 
 def run_branch_and_bound(nodes, requests, vehicles, capacity) -> Solution:
     from branch_and_bound import run_branch_and_bound_solver
-    
-    # --- CẤU HÌNH CHIẾN THUẬT CHIA ĐỂ TRỊ ---
-    CHUNK_SIZE = 11           # Số lượng cặp yêu cầu trong một cụm (giữ mức 10-12 để đảm bảo máy chạy nhanh)
-    TIME_LIMIT = 30           # Giới hạn 30 giây cho mỗi cụm
+ 
+    # --- CẤU HÌNH ---
+    CHUNK_SIZE = 8    # Số cặp request mỗi cụm — B&B thực sự, giữ ≤ 10 để không treo
+    TIME_LIMIT = 30   # Tổng giây tối đa cho toàn bộ B&B
+    VEHICLES_PER_CHUNK = 3  # Số xe tối đa cấp cho mỗi cụm
+ 
     all_final_routes = []
-    
-    print(f"  -> Bắt đầu giải {len(requests)} yêu cầu bằng chiến thuật Chia để trị (B&B)...")
-    
-
+    n_chunks = (len(requests) + CHUNK_SIZE - 1) // CHUNK_SIZE
+    print(f"  -> B&B: {len(requests)} yêu cầu, chia thành {n_chunks} cụm (mỗi cụm ≤ {CHUNK_SIZE} cặp)...")
+ 
+    v_offset = 0  # Con trỏ xe — mỗi cụm dùng xe riêng, không dùng chung
+ 
     for i in range(0, len(requests), CHUNK_SIZE):
-        chunk_requests = requests[i:i + CHUNK_SIZE]
-        print(f"    -> Đang tối ưu hóa cụm từ {i} đến {min(i + CHUNK_SIZE, len(requests))}...")
-
+        chunk_reqs = requests[i : i + CHUNK_SIZE]
+        # Lấy đúng số xe cần cho cụm này (tối thiểu 1, tối đa VEHICLES_PER_CHUNK)
+        n_v = min(VEHICLES_PER_CHUNK, max(1, len(chunk_reqs) // 3 + 1), len(vehicles) - v_offset)
+        if n_v <= 0:
+            # Hết xe — tái sử dụng xe cuối
+            chunk_vehicles = [vehicles[-1]]
+        else:
+            chunk_vehicles = vehicles[v_offset : v_offset + n_v]
+        v_offset = min(v_offset + n_v, len(vehicles) - 1)
+ 
+        chunk_idx = i // CHUNK_SIZE + 1
+ 
         sol = run_branch_and_bound_solver(
-            nodes=nodes, 
-            requests=chunk_requests, 
-            vehicles=vehicles[:8], 
+            nodes=nodes,
+            requests=chunk_reqs,
+            vehicles=chunk_vehicles,
             capacity=capacity,
-            time_limit_seconds=TIME_LIMIT
+            time_limit_seconds=TIME_LIMIT,
         )
-        # Tổng hợp kết quả
+ 
         if sol and sol.routes:
             all_final_routes.extend(sol.routes)
+ 
     return Solution(routes=all_final_routes)
 
 def run_genetic_algorithm(nodes, requests, vehicles, capacity) -> Solution:
