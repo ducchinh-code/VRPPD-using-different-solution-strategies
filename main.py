@@ -4,7 +4,6 @@ from utils  import parse_input
 from models import Node, Request, Vehicle, Route, Solution
 
 def run_greedy(nodes, requests, vehicles, capacity) -> Solution:
-    # TODO: implement greedy.py
     from greedy import solve_greedy
     return solve_greedy(nodes, vehicles)
 

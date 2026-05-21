@@ -9,7 +9,7 @@ from models import Node, Request, Vehicle, Route, Solution, cdist
 
 POPULATION_SIZE   = 50
 MAX_GENERATIONS   = 200
-NO_IMPROVE_LIMIT  = 40
+NO_IMPROVE_LIMIT  = 50
 ELITE_RATIO       = 0.10
 TOURNAMENT_K      = 3
 CROSSOVER_PROB    = 0.80
@@ -33,7 +33,6 @@ class PenaltyManager:
         self.cap  = max(1.0, min(self.cap  * factor, 1000.0))
         self.prec = max(1.0, min(self.prec * factor, 1000.0))
 
-
 def _penalty_raw(sol: Solution) -> tuple[float, int]:
     cap_viol  = 0.0
     prec_viol = 0
@@ -48,7 +47,6 @@ def _penalty_raw(sol: Solution) -> tuple[float, int]:
             if node.is_delivery and node.pickup_index not in pos:
                 prec_viol += 1
     return cap_viol, prec_viol
-
 
 def route_cost(nodes: list[Node], depot: Node) -> float:
     if not nodes:
