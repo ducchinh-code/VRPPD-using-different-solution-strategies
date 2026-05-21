@@ -1,201 +1,245 @@
-import time
 import os
-from utils  import parse_input
-from models import Node, Request, Vehicle, Route, Solution
+import time
+
+from models import Node, Solution
+from utils import parse_input
+
+
+B_AND_B_TIME_LIMIT_SECONDS = 30
+
 
 def run_greedy(nodes, requests, vehicles, capacity) -> Solution:
     from greedy import solve_greedy
+
     return solve_greedy(nodes, vehicles)
+
 
 def run_divide_and_conquer(nodes, requests, vehicles, capacity) -> Solution:
     from divide_and_conquer import divide_kmeans, build_routes_greedy, two_opt
 
-    K = 5
-    USE_2OPT = True
+    k = 5
+    use_2opt = True
     depot = nodes[0]
 
-    clusters, _, _ = divide_kmeans(requests, K)
+    clusters, _, _ = divide_kmeans(requests, k)
 
     all_routes = []
-    v_offset = 0
+    vehicle_idx_start = 0
     for cid in sorted(clusters):
-        reqs = clusters[cid]
-        routes = build_routes_greedy(reqs, vehicles, depot, vehicle_idx_start=v_offset)
+        cluster_requests = clusters[cid]
+        routes = build_routes_greedy(
+            cluster_requests,
+            vehicles,
+            depot,
+            vehicle_idx_start=vehicle_idx_start,
+        )
 
-        if USE_2OPT:
-            routes = [two_opt(r) for r in routes]
-            
-        v_offset += len(routes)
+        if use_2opt:
+            routes = [two_opt(route) for route in routes]
+
+        vehicle_idx_start += len(routes)
         all_routes.extend(routes)
-        
+
     return Solution(routes=all_routes)
+
 
 def run_branch_and_bound(nodes, requests, vehicles, capacity) -> Solution:
     from branch_and_bound import run_branch_and_bound_solver
- 
-    # --- CẤU HÌNH ---
-    CHUNK_SIZE = 8    # Số cặp request mỗi cụm — B&B thực sự, giữ ≤ 10 để không treo
-    TIME_LIMIT = 30   # Tổng giây tối đa cho toàn bộ B&B
-    VEHICLES_PER_CHUNK = 3  # Số xe tối đa cấp cho mỗi cụm
- 
-    all_final_routes = []
-    n_chunks = (len(requests) + CHUNK_SIZE - 1) // CHUNK_SIZE
-    print(f"  -> B&B: {len(requests)} yêu cầu, chia thành {n_chunks} cụm (mỗi cụm ≤ {CHUNK_SIZE} cặp)...")
- 
-    v_offset = 0  # Con trỏ xe — mỗi cụm dùng xe riêng, không dùng chung
- 
-    for i in range(0, len(requests), CHUNK_SIZE):
-        chunk_reqs = requests[i : i + CHUNK_SIZE]
-        # Lấy đúng số xe cần cho cụm này (tối thiểu 1, tối đa VEHICLES_PER_CHUNK)
-        n_v = min(VEHICLES_PER_CHUNK, max(1, len(chunk_reqs) // 3 + 1), len(vehicles) - v_offset)
-        if n_v <= 0:
-            # Hết xe — tái sử dụng xe cuối
-            chunk_vehicles = [vehicles[-1]]
-        else:
-            chunk_vehicles = vehicles[v_offset : v_offset + n_v]
-        v_offset = min(v_offset + n_v, len(vehicles) - 1)
- 
-        chunk_idx = i // CHUNK_SIZE + 1
- 
-        sol = run_branch_and_bound_solver(
-            nodes=nodes,
-            requests=chunk_reqs,
-            vehicles=chunk_vehicles,
-            capacity=capacity,
-            time_limit_seconds=TIME_LIMIT,
-        )
- 
-        if sol and sol.routes:
-            all_final_routes.extend(sol.routes)
- 
-    return Solution(routes=all_final_routes)
+    return run_branch_and_bound_solver(
+        nodes=nodes,
+        requests=requests,
+        vehicles=vehicles,
+        capacity=capacity,
+        time_limit_seconds=B_AND_B_TIME_LIMIT_SECONDS,
+    )
+
 
 def run_genetic_algorithm(nodes, requests, vehicles, capacity) -> Solution:
     from geneticAlgorithm import genetic_algorithm
+
     return genetic_algorithm(nodes, requests, vehicles, capacity)
 
-SEP  = "═" * 70
-SEP2 = "─" * 70
-SEP3 = "·" * 70
 
-def print_solution(name: str, solution: Solution, elapsed: float) -> None:
-    print(f"\n  ┌─ {name}")
+SEP = "=" * 70
+SEP2 = "-" * 70
+
+
+def solution_coverage_report(nodes: list[Node], solution: Solution) -> dict:
+    required = {node.id for node in nodes if not node.is_depot}
+    served = [node.id for route in solution.routes for node in route.nodes]
+    served_set = set(served)
+
+    return {
+        "complete": required == served_set and len(served) == len(served_set),
+        "required_count": len(required),
+        "served_count": len(served),
+        "unique_served_count": len(served_set),
+        "missing_count": len(required - served_set),
+        "duplicate_count": len(served) - len(served_set),
+    }
+
+
+def solution_is_valid(nodes: list[Node], solution: Solution) -> bool:
+    coverage = solution_coverage_report(nodes, solution)
+    return solution.is_feasible() and coverage["complete"]
+
+
+def print_solution(name: str, solution: Solution, elapsed: float,
+                   nodes: list[Node], error: Exception | None = None) -> None:
+    print(f"\n{name}")
+    print(SEP2)
+
+    if error is not None:
+        print(f"  Skipped/error: {type(error).__name__}: {error}")
+        print(f"  Time: {elapsed * 1000:.1f} ms")
+        return
 
     if not solution.routes:
-        print(f"  │  (chưa có nghiệm — stub)")
-        print(f"  └{SEP2[2:]}")
+        print("  No solution returned.")
+        print(f"  Time: {elapsed * 1000:.1f} ms")
         return
 
     for route in solution.routes:
-        U    = route.compute_U()
-        rpt  = route.feasibility_report()
-        ok   = "✓ KHẢ THI" if rpt["feasible"] else \
-               f"✗ CAP={len(rpt['cap_violations'])} PREC={len(rpt['prec_violations'])}"
+        report = route.feasibility_report()
+        route_ok = "OK" if report["feasible"] else (
+            f"BAD cap={len(report['cap_violations'])} "
+            f"prec={len(report['prec_violations'])}"
+        )
 
-        def node_str(n: Node) -> str:
-            tag = "p" if n.is_pickup else "d"
-            return f"{tag}{n.id}(U={U[n.id]})"
+        def node_str(node: Node) -> str:
+            tag = "p" if node.is_pickup else "d"
+            return f"{tag}{node.id}"
 
-        seq = " → ".join(node_str(n) for n in route.nodes)
-        print(f"  │  Xe {route.vehicle.id:>2} [Q={route.vehicle.capacity}]: "
-              f"0(U=0) → {seq} → 0")
+        sequence = " -> ".join(node_str(node) for node in route.nodes)
+        print(
+            f"  Vehicle {route.vehicle.id:>2} [Q={route.vehicle.capacity}]: "
+            f"0 -> {sequence} -> 0"
+        )
 
         load = 0.0
-        load_seq = ["L=0"]
-        for n in route.nodes:
-            load += n.demand
-            load_seq.append(f"L={load:+.0f}")
-        print(f"  │       Tải  : {' → '.join(load_seq)}")
-        print(f"  │       Cost : {rpt['total_cost']:.2f}   {ok}")
+        load_sequence = ["0"]
+        for node in route.nodes:
+            load += node.demand
+            load_sequence.append(f"{load:+.0f}")
 
-    print(f"  │")
-    print(f"  │  Tổng cost  : {solution.total_cost:.2f}")
-    print(f"  │  Số tuyến   : {len(solution.routes)}")
-    print(f"  │  Khả thi    : {'✓ Tất cả' if solution.is_feasible() else '✗ Có vi phạm'}")
-    print(f"  │  Thời gian  : {elapsed*1000:.1f} ms")
-    print(f"  └{SEP2[2:]}")
+        print(f"    Load: {' -> '.join(load_sequence)}")
+        print(f"    Cost: {report['total_cost']:.2f}  {route_ok}")
 
-def print_comparison(results: list[tuple[str, Solution, float]]) -> None:
+    coverage = solution_coverage_report(nodes, solution)
+    valid = solution_is_valid(nodes, solution)
+
+    print()
+    print(f"  Total cost : {solution.total_cost:.2f}")
+    print(f"  Routes     : {len(solution.routes)}")
+    print(f"  Feasible   : {'yes' if solution.is_feasible() else 'no'}")
+    print(f"  Complete   : {'yes' if coverage['complete'] else 'no'}")
+    print(
+        "  Coverage   : "
+        f"{coverage['unique_served_count']}/{coverage['required_count']} unique, "
+        f"missing={coverage['missing_count']}, "
+        f"duplicates={coverage['duplicate_count']}"
+    )
+    print(f"  Valid      : {'yes' if valid else 'no'}")
+    print(f"  Time       : {elapsed * 1000:.1f} ms")
+
+
+def print_comparison(
+    results: list[tuple[str, Solution, float, Exception | None]],
+    nodes: list[Node],
+) -> None:
     print(f"\n{SEP}")
-    print(f"  {'BẢNG SO SÁNH':^66}")
+    print(f"{'COMPARISON':^70}")
     print(SEP)
-    hdr = (f"  {'Chiến thuật':<26} {'Cost':>10} {'Tuyến':>6} "
-           f"{'Khả thi':>8} {'T(ms)':>8}")
-    print(hdr)
-    print(f"  {SEP2}")
+    print(f"{'Strategy':<24} {'Cost':>10} {'Routes':>8} {'Valid':>8} {'T(ms)':>10}")
+    print(SEP2)
 
     best_cost = min(
-        (s.total_cost for _, s, _ in results if s.routes),
-        default=float("inf")
+        (
+            solution.total_cost
+            for _, solution, _, error in results
+            if error is None and solution.routes and solution_is_valid(nodes, solution)
+        ),
+        default=float("inf"),
     )
 
-    for name, sol, elapsed in results:
-        if not sol.routes:
-            cost_str = "—"
-            n_routes = "—"
-            feasible = "—"
+    for name, solution, elapsed, error in results:
+        if error is not None or not solution.routes:
+            cost = "-"
+            routes = "-"
+            valid = "-"
+            marker = ""
         else:
-            cost_str = f"{sol.total_cost:.2f}"
-            n_routes = str(len(sol.routes))
-            feasible = "✓" if sol.is_feasible() else "✗"
+            cost = f"{solution.total_cost:.2f}"
+            routes = str(len(solution.routes))
+            valid = "yes" if solution_is_valid(nodes, solution) else "no"
+            marker = " *" if solution.total_cost == best_cost else ""
 
-        marker = " ★" if sol.routes and sol.total_cost == best_cost else "  "
-        print(f"  {name:<26} {cost_str:>10} {n_routes:>6} "
-              f"{feasible:>8} {elapsed*1000:>7.1f}{marker}")
+        print(
+            f"{name:<24} {cost:>10} {routes:>8} "
+            f"{valid:>8} {elapsed * 1000:>10.1f}{marker}"
+        )
 
-    print(f"  {SEP2}")
-    print(f"  ★ = nghiệm tốt nhất (min cost)")
+    print(SEP2)
+    print("* = lowest cost among valid complete solutions")
+
 
 STRATEGIES = [
-    ("Greedy",               run_greedy),
-    ("Divide & Conquer",     run_divide_and_conquer),
-    ("Branch & Bound",       run_branch_and_bound),
-    ("Genetic Algorithm",    run_genetic_algorithm),
+    ("Greedy", run_greedy),
+    ("Divide & Conquer", run_divide_and_conquer),
+    ("Branch & Bound", run_branch_and_bound),
+    ("Genetic Algorithm", run_genetic_algorithm),
 ]
 
 
-def main():
+def find_default_data_file() -> str | None:
     script_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         os.path.join(script_dir, "lc101.txt"),
         os.path.join(script_dir, "data", "pdp_100", "lc101.txt"),
     ]
-    file_path = next((p for p in candidates if os.path.isfile(p)), None)
+    return next((path for path in candidates if os.path.isfile(path)), None)
+
+
+def main() -> None:
+    file_path = find_default_data_file()
     if file_path is None:
-        print("[LỖI] Không tìm thấy file dữ liệu (lc101.txt).")
+        print("[ERROR] Could not find lc101.txt.")
         return
 
     nodes, requests, vehicles, capacity = parse_input(file_path)
-    depot      = nodes[0]
-    node_by_id = {n.id: n for n in nodes}
 
     print(SEP)
-    print("  VRPPD SOLVER — So sánh chiến thuật")
+    print("VRPPD SOLVER - strategy comparison")
     print(SEP)
-    print(f"  File       : {os.path.basename(file_path)}")
-    print(f"  |V|        : {len(nodes)}  (depot + {len(requests)} pickup + {len(requests)} delivery)")
-    print(f"  |K|        : {len(vehicles)} xe  (Q_k = {capacity})")
-    print(f"  |R|        : {len(requests)} cặp yêu cầu (pᵢ, dᵢ)")
+    print(f"File     : {os.path.basename(file_path)}")
+    print(
+        f"Nodes    : {len(nodes)} "
+        f"(depot + {len(requests)} pickup + {len(requests)} delivery)"
+    )
+    print(f"Vehicles : {len(vehicles)} (capacity = {capacity})")
+    print(f"Requests : {len(requests)} pickup-delivery pairs")
 
     print(f"\n{SEP}")
-    print(f"  KẾT QUẢ TỪNG CHIẾN THUẬT")
+    print("STRATEGY RESULTS")
     print(SEP)
 
     results = []
     for name, func in STRATEGIES:
-        t0 = time.perf_counter()
+        start = time.perf_counter()
+        error = None
         try:
             solution = func(nodes, requests, vehicles, capacity)
-        except NotImplementedError:
+        except Exception as exc:
             solution = Solution()
-        elapsed = time.perf_counter() - t0
+            error = exc
 
-        print_solution(name, solution, elapsed)
-        results.append((name, solution, elapsed))
+        elapsed = time.perf_counter() - start
+        print_solution(name, solution, elapsed, nodes, error)
+        results.append((name, solution, elapsed, error))
 
-    print_comparison(results)
+    print_comparison(results, nodes)
+    print(f"\n{SEP}\nDone.\n{SEP}")
 
-    print(f"\n{SEP}\n  Xong!\n{SEP}\n")
 
 if __name__ == "__main__":
     main()

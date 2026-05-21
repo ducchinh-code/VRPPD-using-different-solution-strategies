@@ -9,7 +9,7 @@ from models import Node, Request, Vehicle, Route, Solution, cdist
 
 POPULATION_SIZE   = 50
 MAX_GENERATIONS   = 200
-NO_IMPROVE_LIMIT  = 50
+NO_IMPROVE_LIMIT  = 40
 ELITE_RATIO       = 0.10
 TOURNAMENT_K      = 3
 CROSSOVER_PROB    = 0.80
