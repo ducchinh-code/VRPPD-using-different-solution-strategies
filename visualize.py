@@ -1,12 +1,3 @@
-"""
-VRPPD Route Visualizer
-======================
-Giao diện chọn file dữ liệu + thuật toán, chạy giải, và trực quan hóa lộ trình.
-
-Cách dùng:
-    python visualize.py
-"""
-
 from __future__ import annotations
 
 import os
@@ -29,15 +20,11 @@ import numpy as np
 from models import Node, Request, Vehicle, Route, Solution, _DIST
 from utils import parse_input
 
-# ── Đường dẫn dữ liệu ───────────────────────────────────────────────────────
-
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data")
 
 B_AND_B_TIME_LIMIT = 30
 GA_TIME_LIMIT = 60
-
-# ── Các thuật toán ────────────────────────────────────────────────────────────
 
 def run_greedy(nodes, requests, vehicles, capacity) -> Solution:
     from greedy import solve_greedy
@@ -65,7 +52,6 @@ def run_divide_and_conquer(nodes, requests, vehicles, capacity) -> Solution:
 
     return Solution(routes=all_routes)
 
-
 def run_branch_and_bound(nodes, requests, vehicles, capacity) -> Solution:
     from branch_and_bound import run_branch_and_bound_solver
     return run_branch_and_bound_solver(
@@ -73,7 +59,6 @@ def run_branch_and_bound(nodes, requests, vehicles, capacity) -> Solution:
         vehicles=vehicles, capacity=capacity,
         time_limit_seconds=B_AND_B_TIME_LIMIT,
     )
-
 
 def run_genetic_algorithm(nodes, requests, vehicles, capacity) -> Solution:
     from geneticAlgorithm import genetic_algorithm
@@ -90,10 +75,7 @@ STRATEGIES = {
     "Genetic Algorithm":   run_genetic_algorithm,
 }
 
-# ── Hàm phụ trợ ──────────────────────────────────────────────────────────────
-
 def scan_data_files() -> dict[str, list[str]]:
-    """Quét thư mục data/ và trả về {group_name: [file_name, ...]}."""
     groups: dict[str, list[str]] = {}
     if not os.path.isdir(DATA_DIR):
         return groups
@@ -122,8 +104,6 @@ def solution_coverage(nodes: list[Node], sol: Solution) -> dict:
         "duplicates":    len(served) - len(served_s),
     }
 
-# ── Bảng màu ─────────────────────────────────────────────────────────────────
-
 ROUTE_COLORS = [
     "#4fc1ff", "#ff79c6", "#50fa7b", "#ffb86c", "#bd93f9",
     "#f1fa8c", "#8be9fd", "#ff5555", "#6272a4", "#f8f8f2",
@@ -131,10 +111,7 @@ ROUTE_COLORS = [
     "#dcdcaa", "#6a9955", "#e06c75", "#98c379", "#61afef",
 ]
 
-# ── Giao diện chọn file + thuật toán ─────────────────────────────────────────
-
 class SelectorDialog:
-    """Cửa sổ tkinter để chọn bộ dữ liệu, file và thuật toán."""
 
     def __init__(self):
         self.result: dict | None = None
@@ -154,8 +131,6 @@ class SelectorDialog:
         self._setup_styles()
         self._build_ui()
         self._center_window()
-
-    # ── Styles ──
 
     def _setup_styles(self):
         style = ttk.Style(self.root)
@@ -185,24 +160,19 @@ class SelectorDialog:
         style.map("Run.TButton",
                   background=[("active", "#74c7ec"), ("pressed", "#b4befe")])
 
-    # ── Build UI ──
-
     def _build_ui(self):
         main = ttk.Frame(self.root, style="Dark.TFrame", padding=30)
         main.pack(fill="both", expand=True)
 
-        # Tiêu đề
         ttk.Label(main, text="🚛  VRPPD Route Visualizer",
                   style="Title.TLabel").pack(pady=(0, 2))
         ttk.Label(main, text="Chọn file dữ liệu và thuật toán để chạy & xem kết quả",
                   style="Subtitle.TLabel").pack(pady=(0, 20))
 
-        # ── Khung chọn ──
         sel_frame = ttk.LabelFrame(main, text="  Cấu hình  ",
                                     style="Dark.TLabelframe", padding=15)
         sel_frame.pack(fill="x", pady=(0, 15))
 
-        # Bộ dữ liệu
         row1 = ttk.Frame(sel_frame, style="Dark.TFrame")
         row1.pack(fill="x", pady=5)
         ttk.Label(row1, text="Bộ dữ liệu:", style="Dark.TLabel",
@@ -216,7 +186,6 @@ class SelectorDialog:
         self.group_cb.pack(side="left", padx=(5, 0))
         self.group_cb.bind("<<ComboboxSelected>>", self._on_group_change)
 
-        # File
         row2 = ttk.Frame(sel_frame, style="Dark.TFrame")
         row2.pack(fill="x", pady=5)
         ttk.Label(row2, text="File:", style="Dark.TLabel",
@@ -228,7 +197,6 @@ class SelectorDialog:
         )
         self.file_cb.pack(side="left", padx=(5, 0))
 
-        # Thuật toán
         row3 = ttk.Frame(sel_frame, style="Dark.TFrame")
         row3.pack(fill="x", pady=5)
         ttk.Label(row3, text="Thuật toán:", style="Dark.TLabel",
@@ -242,7 +210,6 @@ class SelectorDialog:
         self.strat_cb.pack(side="left", padx=(5, 0))
         self.strat_cb.current(0)
 
-        # Nút chạy
         btn_frame = ttk.Frame(main, style="Dark.TFrame")
         btn_frame.pack(pady=(10, 0))
         self.run_btn = ttk.Button(
@@ -254,8 +221,6 @@ class SelectorDialog:
         # Thiết lập mặc định
         self.group_cb.current(0)
         self._on_group_change()
-
-    # ── Callbacks ──
 
     def _on_group_change(self, _event=None):
         group = self.group_var.get()
@@ -292,7 +257,6 @@ class SelectorDialog:
         self.root.mainloop()
         return self.result
 
-# ── Trực quan hóa kết quả ────────────────────────────────────────────────────
 
 def visualize_solution(
     solution: Solution,
@@ -302,7 +266,6 @@ def visualize_solution(
     elapsed_ms: float,
     capacity: float,
 ) -> None:
-    """Vẽ biểu đồ lộ trình VRPPD."""
 
     depot = nodes[0]
     cov = solution_coverage(nodes, solution)
@@ -312,19 +275,15 @@ def visualize_solution(
     num_routes = len(solution.routes)
     cmap = plt.colormaps["tab20"].resampled(max(num_routes, 1))
 
-    # ── Tạo figure ──
-
     fig = plt.figure(figsize=(18, 10), facecolor="#0d1117")
     fig.canvas.manager.set_window_title(
         f"VRPPD — {strategy_name} — {file_name}"
     )
 
-    # Chia layout: biểu đồ chính (trái) + bảng thông tin (phải)
     gs = fig.add_gridspec(1, 2, width_ratios=[3, 1], wspace=0.05)
     ax_map = fig.add_subplot(gs[0, 0])
     ax_info = fig.add_subplot(gs[0, 1])
 
-    # ── Biểu đồ bản đồ (trái) ──
 
     ax_map.set_facecolor("#161b22")
     ax_map.tick_params(colors="#8b949e", labelsize=8)
@@ -336,18 +295,15 @@ def visualize_solution(
     ax_map.set_xlabel("X", fontsize=10)
     ax_map.set_ylabel("Y", fontsize=10)
 
-    # Vẽ từng tuyến xe
     legend_handles = []
     for i, route in enumerate(solution.routes):
         color = ROUTE_COLORS[i % len(ROUTE_COLORS)]
 
-        # Đường nối: depot → nodes → depot
         xs = [depot.x] + [n.x for n in route.nodes] + [depot.x]
         ys = [depot.y] + [n.y for n in route.nodes] + [depot.y]
 
         ax_map.plot(xs, ys, "-", color=color, linewidth=1.8, alpha=0.7, zorder=2)
 
-        # Mũi tên chỉ hướng di chuyển
         for j in range(len(xs) - 1):
             mx = (xs[j] + xs[j + 1]) / 2
             my = (ys[j] + ys[j + 1]) / 2
@@ -362,7 +318,6 @@ def visualize_solution(
                     zorder=3,
                 )
 
-        # Pickup markers (tam giác lên)
         pickups = [n for n in route.nodes if n.is_pickup]
         if pickups:
             ax_map.scatter(
@@ -371,7 +326,6 @@ def visualize_solution(
                 edgecolors="white", linewidths=0.5,
             )
 
-        # Delivery markers (hình vuông)
         deliveries = [n for n in route.nodes if n.is_delivery]
         if deliveries:
             ax_map.scatter(
@@ -380,7 +334,6 @@ def visualize_solution(
                 edgecolors="white", linewidths=0.5,
             )
 
-        # Nhãn node ID
         for node in route.nodes:
             ax_map.annotate(
                 str(node.id), (node.x, node.y),
@@ -398,7 +351,6 @@ def visualize_solution(
             )
         )
 
-    # Depot
     ax_map.scatter(depot.x, depot.y, c="#ff5555", marker="*", s=600,
                    zorder=10, edgecolors="white", linewidths=0.8)
     ax_map.annotate("DEPOT", (depot.x, depot.y),
@@ -406,7 +358,6 @@ def visualize_solution(
                     color="#ff5555", fontsize=9, ha="center",
                     fontweight="bold", zorder=11)
 
-    # Legend (biểu đồ)
     legend_handles += [
         plt.scatter([], [], c="#aaa", marker="^", s=70,
                     label="△  Pickup  (demand > 0)"),
@@ -421,14 +372,11 @@ def visualize_solution(
         framealpha=0.95,
     )
 
-    # Tiêu đề biểu đồ
     ax_map.set_title(
         f"Lộ trình VRPPD — {strategy_name}\n"
         f"File: {file_name}  |  {num_routes} tuyến xe",
         color="#e6edf3", fontsize=13, fontweight="bold", pad=14,
     )
-
-    # ── Bảng thông tin (phải) ──
 
     ax_info.set_facecolor("#161b22")
     ax_info.set_xlim(0, 1)
@@ -470,7 +418,6 @@ def visualize_solution(
     for item in info_items:
         label, value, color, size, weight = item
         if value is None:
-            # Tiêu đề / phân cách
             ax_info.text(0.5, y_pos, label, transform=ax_info.transAxes,
                          fontsize=size, fontweight=weight, color=color or "#cdd6f4",
                          ha="center", va="top", fontfamily="Segoe UI")
@@ -483,8 +430,6 @@ def visualize_solution(
                          fontsize=size, fontweight=weight, color=color,
                          ha="right", va="top", fontfamily="Segoe UI")
             y_pos -= 0.033
-
-    # ── Chi tiết từng tuyến (phần dưới bảng) ──
 
     if num_routes <= 15:
         y_pos -= 0.02
@@ -520,15 +465,11 @@ def visualize_solution(
 
     plt.show()
 
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-
 def main() -> None:
     print("=" * 60)
     print("  VRPPD Route Visualizer")
     print("=" * 60)
 
-    # 1. Mở dialog chọn file + thuật toán
     try:
         dialog = SelectorDialog()
     except FileNotFoundError as e:
@@ -549,7 +490,6 @@ def main() -> None:
     print(f"\n  File      : {group}/{filename}")
     print(f"  Thuật toán: {strategy_name}")
 
-    # 2. Đọc dữ liệu
     print(f"\n  Đang đọc dữ liệu...")
     try:
         nodes, requests, vehicles, capacity = parse_input(filepath)
@@ -561,7 +501,6 @@ def main() -> None:
     print(f"  Requests = {len(requests)} cặp pickup-delivery")
     print(f"  Vehicles = {len(vehicles)} (capacity = {capacity})")
 
-    # 3. Chạy thuật toán
     _DIST.clear()
     strategy_fn = STRATEGIES[strategy_name]
 
@@ -582,7 +521,6 @@ def main() -> None:
         print(f"  Thời gian: {elapsed_ms:.1f} ms")
         return
 
-    # 4. In kết quả tóm tắt
     cov = solution_coverage(nodes, solution)
     valid = solution.is_feasible() and cov["complete"]
 
@@ -592,7 +530,8 @@ def main() -> None:
     print(f"  Valid         : {'✓' if valid else '✗'}")
     print(f"  Thời gian    : {elapsed_ms:.1f} ms")
 
-    # 5. Trực quan hóa
+    plt.switch_backend("TkAgg")
+
     print(f"\n  Đang vẽ biểu đồ...")
     visualize_solution(
         solution=solution,

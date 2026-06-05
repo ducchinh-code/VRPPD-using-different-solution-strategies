@@ -1,6 +1,5 @@
 import math
 
-# Shared Euclidean distance cache — avoids redundant math.hypot calls
 _DIST: dict[tuple[int, int], float] = {}
 
 def cdist(a: "Node", b: "Node") -> float:
