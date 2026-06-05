@@ -5,13 +5,6 @@ EPS = 1e-9
 
 
 def build_cost_matrix(nodes):
-    """
-    Build a distance lookup by node id.
-
-    A list matrix indexed directly by node.id only works when node ids are
-    exactly 0..n-1. This dict-based lookup also supports sparse/non-contiguous
-    ids while keeping O(1) distance access.
-    """
     return {
         a.id: {
             b.id: 0.0 if a.id == b.id else a.distance_to(b)
@@ -22,12 +15,6 @@ def build_cost_matrix(nodes):
 
 
 def mark_visited(cost_matrix, node_id):
-    """
-    Mark a node as unavailable in the distance lookup.
-
-    Kept for compatibility with older code. solve_greedy uses the visited set
-    as the source of truth, so this function is no longer required there.
-    """
     rows = cost_matrix.values() if hasattr(cost_matrix, "values") else cost_matrix
     for row in rows:
         if node_id in row:
@@ -123,16 +110,6 @@ def validate_solution_coverage(nodes, routes):
 
 
 def solve_greedy(nodes, vehicles):
-    """
-    Greedy VRP-PD solver.
-
-    For each vehicle, repeatedly choose the nearest unvisited node that is
-    feasible for the current route:
-    - pickup nodes must fit within vehicle capacity
-    - delivery nodes can only be visited after their pickup on the same route
-
-    Complexity is O(k * n^2) in the typical case.
-    """
     if not nodes:
         return Solution()
 

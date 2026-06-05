@@ -1,7 +1,6 @@
 from __future__ import annotations
-
-import math
 import random
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -470,7 +469,8 @@ def run_ga(requests: list[Request], vehicles: list[Vehicle],
            depot: Node, capacity: float, node_by_id: dict[int, Node],
            pop_size: int = POPULATION_SIZE, max_gen: int = MAX_GENERATIONS,
            no_improve_lim: int = NO_IMPROVE_LIMIT,
-           verbose: bool = False) -> Solution:
+           verbose: bool = False,
+           time_limit_seconds: Optional[float] = None) -> Solution:
 
     max_nodes_per_route = 0
     if verbose:
@@ -488,7 +488,12 @@ def run_ga(requests: list[Request], vehicles: list[Vehicle],
     if verbose:
         print(f"  [GA] Gen   0 | best fitness = {best.fitness:.2f}")
 
+    start_time = time.perf_counter()
     for gen in range(1, max_gen + 1):
+        if time_limit_seconds is not None and (time.perf_counter() - start_time) > time_limit_seconds:
+            if verbose:
+                print(f"  [GA] Time limit reached ({time_limit_seconds}s)")
+            break
         penalty_mgr.update(population)
 
         elite_count = max(1, int(pop_size * ELITE_RATIO))
@@ -570,7 +575,8 @@ def run_ga(requests: list[Request], vehicles: list[Vehicle],
     return final.solution if final.solution is not None else Solution()
 
 def genetic_algorithm(nodes: list[Node], requests: list[Request],
-                      vehicles: list[Vehicle], capacity: float) -> Solution:
+                      vehicles: list[Vehicle], capacity: float,
+                      time_limit_seconds: Optional[float] = None) -> Solution:
     depot      = nodes[0]
     node_by_id = {n.id: n for n in nodes}
     return run_ga(
@@ -583,4 +589,5 @@ def genetic_algorithm(nodes: list[Node], requests: list[Request],
         max_gen=MAX_GENERATIONS,
         no_improve_lim=NO_IMPROVE_LIMIT,
         verbose=True,
+        time_limit_seconds=time_limit_seconds,
     )

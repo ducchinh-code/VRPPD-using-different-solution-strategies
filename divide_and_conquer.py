@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 from models import Node, Request, Vehicle, Route, Solution
-from utils  import parse_input
 
 warnings.filterwarnings("ignore")
 

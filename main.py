@@ -194,8 +194,8 @@ STRATEGIES = [
 def find_default_data_file() -> str | None:
     script_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
-        os.path.join(script_dir, "lc101.txt"),
-        os.path.join(script_dir, "data", "pdp_100", "lc101.txt"),
+        os.path.join(script_dir, "lc103.txt"),
+        os.path.join(script_dir, "data", "pdp_100", "lc103.txt"),
     ]
     return next((path for path in candidates if os.path.isfile(path)), None)
 
