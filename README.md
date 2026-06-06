@@ -1,4 +1,4 @@
-﻿# VRPPD - Vehicle Routing Problem with Pickup and Delivery
+# VRPPD - Vehicle Routing Problem with Pickup and Delivery
 
 Dự án này cài đặt và so sánh 4 chiến lược giải bài toán định tuyến xe có lấy và giao hàng (Vehicle Routing Problem with Pickup and Delivery - VRPPD):
 
@@ -38,6 +38,7 @@ DAA/
 |-- divide_and_conquer.py    # K-Means clustering + greedy routing + 2-opt
 |-- branch_and_bound.py      # Branch & Bound có giới hạn thời gian
 |-- geneticAlgorithm.py      # Genetic Algorithm + local search
+|-- visualize.py             # GUI trực quan hóa lộ trình (Tkinter + Matplotlib)
 |-- experiment_results.csv   # Kết quả thực nghiệm gần nhất
 |-- data/
 |   |-- pdp_100/             # 56 file benchmark
@@ -97,6 +98,67 @@ experiment_results.csv
 ```
 
 Cần lưu ý: cấu hình mặc định có thể tốn nhiều thời gian. Branch & Bound có giới hạn 60 giây/file, Genetic Algorithm có giới hạn 60 giây/file nhưng thực tế có thể vượt mức này vì một thế hệ GA phải chạy xong mới kiểm tra timeout.
+
+### 3. Trực quan hóa lộ trình
+
+```bash
+python visualize.py
+```
+
+Module `visualize.py` cung cấp giao diện đồ họa để chạy thuật toán và xem kết quả trực quan trên bản đồ 2D.
+
+#### Quy trình sử dụng
+
+1. **Cửa sổ chọn cấu hình** — Khi chạy, một dialog Tkinter hiện ra cho phép chọn:
+   - **Bộ dữ liệu**: thư mục con trong `data/` (ví dụ: `pdp_100`, `pdp_200`, `pdp_400`).
+   - **File**: file benchmark cụ thể trong bộ dữ liệu đã chọn.
+   - **Thuật toán**: một trong 4 chiến lược — Greedy, Divide & Conquer, Branch & Bound, Genetic Algorithm.
+
+2. **Nhấn "▶ Chạy & Trực quan hóa"** — Chương trình chạy thuật toán được chọn trên file đã chọn.
+
+3. **Cửa sổ kết quả** — Hiển thị bản đồ lộ trình và bảng thông tin chi tiết.
+
+#### Bản đồ lộ trình (panel trái)
+
+Bản đồ hiển thị toàn bộ tuyến xe trên hệ tọa độ 2D với các quy ước:
+
+| Ký hiệu | Ý nghĩa |
+|---|---|
+| ★ đỏ | Depot (node 0) |
+| △ tam giác | Node pickup (demand > 0) |
+| □ vuông | Node delivery (demand < 0) |
+| → mũi tên trên đoạn thẳng | Hướng di chuyển của xe |
+
+- Mỗi tuyến xe được vẽ bằng một **màu riêng** (tối đa 20 màu phân biệt).
+- Mỗi node được ghi nhãn số ID.
+- Legend ở góc dưới trái liệt kê tất cả tuyến xe kèm số node và chi phí.
+
+#### Bảng thông tin (panel phải)
+
+Hiển thị các chỉ số chính:
+
+- **Thuật toán** và **file** đang xem.
+- **Tổng chi phí** (tổng khoảng cách Euclidean).
+- **Số tuyến xe**, **tổng node**, **số yêu cầu**, **sức chứa xe**.
+- **Feasible** — tải trọng và thứ tự pickup-delivery hợp lệ.
+- **Complete** — tất cả node được phục vụ đúng một lần, không thiếu, không trùng.
+- **Valid** — kết hợp cả feasible và complete.
+- **Thời gian chạy** (ms).
+- **Chi tiết tuyến xe** — liệt kê từng xe với số node, chi phí và trạng thái (nếu ≤ 15 tuyến).
+
+#### Cấu hình visualizer
+
+Trong `visualize.py`:
+
+```python
+B_AND_B_TIME_LIMIT = 30   # Giới hạn thời gian Branch & Bound (giây)
+GA_TIME_LIMIT      = 60   # Giới hạn thời gian Genetic Algorithm (giây)
+```
+
+#### Yêu cầu thêm
+
+- Cần cài `matplotlib` và backend `TkAgg` (đi kèm Tkinter trong bản Python chuẩn).
+- Cửa sổ dialog sử dụng theme tối (Catppuccin Mocha), cửa sổ biểu đồ sử dụng theme tối GitHub.
 
 ## Cấu Hình Chính
 
